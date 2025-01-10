@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDF/Webpage Chat Interface</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(45deg, #000428, #004e92);
+            color: #00ff9d;
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+
+        #chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #0ff;
+            padding: 10px;
+            margin: 20px 0;
+            display: none;
+            background: rgba(0, 0, 0, 0.6);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            flex-grow: 1;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #0ff;
+            color: #00ff9d;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        button {
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #0ff, #00ff9d);
+            color: black;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        button:disabled {
+            background: #333;
+            color: #666;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid;
+        }
+
+        .user-message {
+            background: rgba(0, 255, 157, 0.1);
+            border-left-color: #00ff9d;
+        }
+
+        .bot-message {
+            background: rgba(0, 255, 255, 0.1);
+            border-left-color: #0ff;
+        }
+
+        #status {
+            color: #0ff;
+            margin: 10px 0;
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #0ff;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ff9d;
+        }
+
+        footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            text-align: center;
+            padding: 10px;
+            font-size: 0.9em;
+            backdrop-filter: blur(5px);
+            border-top: 1px solid rgba(0, 255, 255, 0.1);
+        }
+
+        footer p {
+            margin: 0;
+            color: #00ff9d;
+        }
+
+        .heart {
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        /* Adjust chat container to not overlap with footer */
+        #chat-container {
+            margin-bottom: 60px;  /* Add space for footer */
+        }
+    </style>
+</head>
+<body>
+    <h1>PDF/Webpage Chat</h1>
+    
+    <!-- PDF Upload Section -->
+    <div class="input-container">
+        <input type="text" id="doc-url" placeholder="Enter URL (PDF or news article)">
+        <button onclick="processDocument()" id="process-btn">Process Document</button>
+    </div>
+    <div id="status"></div>
+
+    <!-- Chat Section -->
+    <div id="chat-container"></div>
+    
+    <div class="input-container" id="chat-input" style="display: none;">
+        <input type="text" id="query" placeholder="Ask a question about the PDF">
+        <button onclick="askQuestion()" id="ask-btn">Ask</button>
+    </div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const chatContainer = document.getElementById('chat-container');
+        const chatInput = document.getElementById('chat-input');
+
+        async function processDocument() {
+            const urlInput = document.getElementById('doc-url');
+            const processBtn = document.getElementById('process-btn');
+            
+            if (!urlInput.value) {
+                alert('Please enter a URL');
+                return;
+            }
+            
+            processBtn.disabled = true;
+            statusDiv.textContent = 'Processing document...';
+            
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: urlInput.value }),
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    statusDiv.textContent = 'Document processed successfully! You can now ask questions.';
+                    chatContainer.style.display = 'block';
+                    chatInput.style.display = 'flex';
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Error: ' + error.message;
+            } finally {
+                processBtn.disabled = false;
+            }
+        }
+
+        async function askQuestion() {
+            const queryInput = document.getElementById('query');
+            const askBtn = document.getElementById('ask-btn');
+            const query = queryInput.value.trim();
+            
+            if (!query) return;
+            
+            // Add user message
+            appendMessage('You: ' + query, 'user-message');
+            queryInput.value = '';
+            askBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query }),
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    appendMessage('🤖: ' + data.answer, 'bot-message');
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                appendMessage('Error: ' + error.message, 'bot-message');
+            } finally {
+                askBtn.disabled = false;
+                queryInput.focus();
+            }
+        }
+
+        function appendMessage(message, className) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + className;
+            messageDiv.textContent = message;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Enable Enter key for sending messages
+        document.getElementById('query').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !this.disabled) {
+                askQuestion();
+            }
+        });
+
+        // Enable Enter key for processing PDF
+        document.getElementById('doc-url').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                processDocument();
+            }
+        });
+    </script>
+
+    <footer>
+        <p>made w/ <span class="heart">❤️</span> in sf 🌁</p>
+    </footer>
+</body>
+</html>
