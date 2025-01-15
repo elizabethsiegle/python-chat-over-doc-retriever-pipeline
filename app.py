@@ -23,12 +23,10 @@ from botocore.client import Config
 from clients import (
     VOYAGE_API_KEY,
     CLOUDFLARE_ACCOUNT_ID,
-    CLOUDFLARE_AUTH_TOKEN,
-    R2_ACCESS_KEY_ID,
-    R2_SECRET_ACCESS_KEY,
-    R2_BUCKET_NAME
+    CLOUDFLARE_AUTH_TOKEN
 )
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -42,23 +40,6 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize Voyage client: {e}")
     raise
-
-# Initialize R2 client
-try:
-    r2_client = boto3.client(
-        's3',
-        endpoint_url=f"https://{CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com",
-        aws_access_key_id=R2_ACCESS_KEY_ID,
-        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-        config=Config(signature_version='s3v4'),
-        region_name='auto'
-    )
-    logger.debug("Successfully initialized R2 client")
-except Exception as e:
-    logger.error(f"Failed to initialize R2 client: {e}")
-    raise
-
-# Initialize other clients and continue with the rest of your app...
 
 # Initialize tokenizer
 encoder = tiktoken.encoding_for_model("gpt-3.5-turbo")
@@ -83,65 +64,16 @@ CORS(app)
 os.makedirs('downloads', exist_ok=True)
 os.makedirs('output', exist_ok=True)
 
-def init_r2_client():
-    """Initialize Cloudflare R2 client"""
-    try:
-        logger.debug(f"Initializing R2 client with account ID: {CLOUDFLARE_ACCOUNT_ID}")
-        logger.debug(f"Using bucket: {R2_BUCKET_NAME}")
-        
-        if not all([CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME]):
-            raise ValueError("Missing required R2 configuration")
-            
-        return boto3.client(
-            's3',
-            endpoint_url=f"https://{CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com",
-            aws_access_key_id=R2_ACCESS_KEY_ID,
-            aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-            config=Config(signature_version='s3v4'),
-            region_name='auto'
-        )
-    except Exception as e:
-        logger.error(f"Failed to initialize R2 client: {str(e)}")
-        raise
+# Add these configurations
+UPLOAD_FOLDER = 'temp/uploads'
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx'}
 
-def upload_to_r2(file_path, bucket_name, object_name=None):
-    """Upload a file to Cloudflare R2"""
-    if object_name is None:
-        object_name = os.path.basename(file_path)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    try:
-        # Simple upload with minimal code
-        r2_client = boto3.client(
-            's3',
-            endpoint_url=f"https://{CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com",
-            aws_access_key_id=R2_ACCESS_KEY_ID,
-            aws_secret_access_key=R2_SECRET_ACCESS_KEY,
-            config=Config(signature_version='s3v4'),
-            region_name='us-east-1'
-        )
-        
-        # Read file and upload directly
-        with open(file_path, 'rb') as file_obj:
-            r2_client.put_object(
-                Bucket=bucket_name,
-                Key=object_name,
-                Body=file_obj.read()
-            )
-            
-        return f"https://{bucket_name}.{CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/{object_name}"
-        
-    except Exception as e:
-        logger.error(f"Upload failed: {str(e)}")
-        raise
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def download_from_r2(bucket_name, object_name, file_path):
-    """Download a file from Cloudflare R2"""
-    r2_client = init_r2_client()
-    try:
-        r2_client.download_file(bucket_name, object_name, file_path)
-    except Exception as e:
-        logging.error(f"Error downloading from R2: {str(e)}")
-        raise
 
 def download_pdf(url):
     """Download PDF from URL and save it locally."""
@@ -169,7 +101,6 @@ def process_pdf(file_path):
 
     # Sanitize filename to replace spaces and special characters
     base_name = os.path.splitext(os.path.basename(file_path))[0]
-    safe_base_name = base_name.replace(' ', '_').replace("'", '').replace('"', '')
 
     extracted_text_file = os.path.join('output', 'article_extracted.txt')
     chunks_file = os.path.join('output', 'chunks.json')
@@ -321,9 +252,6 @@ def generate_answer(query, chunks):
 
 def main(input_path):
     global index, texts, bm25
-
-    # Get the directory of the current script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
 
     if os.path.isfile(input_path) and input_path.lower().endswith(('.pdf', '.docx')):
         # Process single PDF or DOCX file
@@ -537,6 +465,50 @@ def process_document(input_file):
 # def process():
 #     result = process_document('path/to/your/file')
 #     return jsonify({'success': result})
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    try:
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+            
+        file = request.files['file']
+        
+        # Check if file was selected
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+            
+        # Check if file type is allowed
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'File type not allowed'}), 400
+            
+        # Secure the filename and save file
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        # Process the uploaded file
+        try:
+            # Extract text
+            text_path = os.path.join('temp/output', 'extracted.txt')
+            extract_text(filepath, text_path)
+            
+            # Process the text (chunk and index)
+            process_document(text_path)
+            
+            return jsonify({
+                'success': True,
+                'message': 'File processed successfully'
+            })
+            
+        except Exception as e:
+            logger.error(f"Error processing file: {str(e)}")
+            return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error uploading file: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Ensure required directories exist

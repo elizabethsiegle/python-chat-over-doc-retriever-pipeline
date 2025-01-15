@@ -153,6 +153,27 @@
         #chat-container {
             margin-bottom: 60px;  /* Add space for footer */
         }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #0ff, #00ff9d);
+            color: black;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        #file-name {
+            color: #00ff9d;
+            margin: 0 10px;
+        }
     </style>
 </head>
 <body>
@@ -171,6 +192,15 @@
     <div class="input-container" id="chat-input" style="display: none;">
         <input type="text" id="query" placeholder="Ask a question about the PDF">
         <button onclick="askQuestion()" id="ask-btn">Ask</button>
+    </div>
+
+    <div class="input-container">
+        <input type="file" id="file-upload" accept=".txt,.pdf,.docx" style="display: none;">
+        <button onclick="document.getElementById('file-upload').click()" class="upload-btn">
+            Choose File
+        </button>
+        <span id="file-name">No file chosen</span>
+        <button onclick="uploadFile()" id="upload-btn">Upload</button>
     </div>
 
     <script>
@@ -270,6 +300,47 @@
                 processDocument();
             }
         });
+
+        document.getElementById('file-upload').addEventListener('change', function() {
+            document.getElementById('file-name').textContent = 
+                this.files[0] ? this.files[0].name : 'No file chosen';
+        });
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('file-upload');
+            const uploadBtn = document.getElementById('upload-btn');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            uploadBtn.disabled = true;
+            statusDiv.textContent = 'Uploading and processing file...';
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    statusDiv.textContent = 'File processed successfully! You can now ask questions.';
+                    chatContainer.style.display = 'block';
+                    chatInput.style.display = 'flex';
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Error: ' + error.message;
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        }
     </script>
 
     <footer>
