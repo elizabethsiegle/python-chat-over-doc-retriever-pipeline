@@ -1,6 +1,6 @@
 # PDF/Webpage Chat Interface
 
-A retriever pipeline Python web application that allows users to chat with PDFs and web articles using AI. Combines [FAISS vector similarity search](https://github.com/facebookresearch/faiss) and BM25 keyword matching for accurate document retrieval and uses [Voyage AI embeddings](https://www.voyageai.com/) and [LLaMA](https://developers.cloudflare.com/workers-ai/models/llama-3.2-3b-instruct/) hosted on Cloudflare Workers AI for question answering.
+A retriever pipeline Python web application that allows users to chat with PDFs and web articles using AI. Combines [FAISS vector similarity search](https://github.com/facebookresearch/faiss) and BM25 keyword matching for accurate document retrieval and uses [Voyage AI embeddings](https://www.voyageai.com/) and [LLaMA](https://developers.cloudflare.com/workers-ai/models/llama-3.2-3b-instruct/) hosted on [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) for question answering.
 
 ## Key Files
 
@@ -25,6 +25,3 @@ A retriever pipeline Python web application that allows users to chat with PDFs 
 - Cloudflare Account ID
 - Cloudflare Auth Token
 - Voyage AI API Key
-- R2 Access Key ID
-- R2 Secret Access Key
-- R2 Bucket Name
