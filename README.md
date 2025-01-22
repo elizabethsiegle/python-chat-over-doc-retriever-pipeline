@@ -1,4 +1,7 @@
-# PDF/Webpage Chat Interface
+# PDF/Webpage Chat Interface Retriever Pipeline 
+
+[<img src="https://img.youtube.com/vi/Q4SQC6fzC38/0.jpg">](https://youtu.be/Q4SQC6fzC38 "Build a RAG Pipeline with Cloudflare Workers AI and Voyage AI!")
+
 
 A retriever pipeline Python web application that allows users to chat with PDFs and web articles using AI. Combines [FAISS vector similarity search](https://github.com/facebookresearch/faiss) and BM25 keyword matching for accurate document retrieval and uses [Voyage AI embeddings](https://www.voyageai.com/) and [LLaMA](https://developers.cloudflare.com/workers-ai/models/llama-3.2-3b-instruct/) hosted on [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) for question answering.
 
